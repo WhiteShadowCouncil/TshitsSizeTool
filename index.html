@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>T-Shirt Design Sizing Tool</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 20px; }
+    canvas { border: 1px solid #ccc; margin-top: 10px; }
+    #controls { margin-top: 20px; }
+    label, select, input { margin: 0 10px; }
+    #sizeOutput { margin-top: 10px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>T-Shirt Design Sizing Tool</h1>
+  <div id="controls">
+    <label for="sizeSelect">T-shirt Size:</label>
+    <select id="sizeSelect">
+      <option value="S">Small</option>
+      <option value="M" selected>Medium</option>
+      <option value="L">Large</option>
+      <option value="XL">X-Large</option>
+    </select>
+
+    <label for="unitSelect">Units:</label>
+    <select id="unitSelect">
+      <option value="cm">cm</option>
+      <option value="inch">inch</option>
+    </select>
+
+    <input type="file" id="upload" accept="image/*" />
+  </div>
+
+  <canvas id="tshirtCanvas" width="500" height="600"></canvas>
+  <div id="sizeOutput">Design Size: --</div>
+
+  <script>
+    window.addEventListener('load', () => {
+      const script = document.createElement('script');
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.6.0/fabric.min.js";
+      script.onload = initializeApp;
+      document.body.appendChild(script);
+    });
+
+    function initializeApp() {
+      const canvas = new fabric.Canvas('tshirtCanvas');
+      const printableAreas = {
+        S: { width: 18, height: 22 },
+        M: { width: 20, height: 25 },
+        L: { width: 23, height: 28 },
+        XL: { width: 25, height: 30 }
+      };
+
+      let currentUnit = 'cm';
+      const unitFactors = { cm: 1, inch: 0.393701 };
+      const DPI = 37.8; // pixels per cm
+      let design = null;
+
+      function drawTshirtOutline(sizeKey) {
+        canvas.clear();
+
+        const printable = printableAreas[sizeKey];
+        const pxWidth = printable.width * DPI;
+        const pxHeight = printable.height * DPI;
+
+        // Load T-shirt outline image (transparent background PNG)
+        fabric.Image.fromURL('https://i.imgur.com/2rhBbnS.png', function(img) {
+          img.set({
+            left: 250 - img.width / 2,
+            top: 0,
+            selectable: false
+          });
+
+          const printZone = new fabric.Rect({
+            width: pxWidth,
+            height: pxHeight,
+            left: 250 - pxWidth / 2,
+            top: 180,
+            fill: 'rgba(200,200,255,0.2)',
+            stroke: 'blue',
+            strokeDashArray: [5, 5],
+            selectable: false
+          });
+
+          canvas.add(img, printZone);
+
+          if (design) {
+            canvas.add(design);
+            design.center();
+          }
+        });
+      }
+
+      function updateSizeOutput() {
+        if (!design) return;
+        const widthCm = design.getScaledWidth() / DPI;
+        const heightCm = design.getScaledHeight() / DPI;
+        const factor = unitFactors[currentUnit];
+        document.getElementById('sizeOutput').textContent = `Design Size: ${
+          (widthCm * factor).toFixed(2)} x ${(heightCm * factor).toFixed(2)} ${currentUnit}`;
+      }
+
+      canvas.on('object:modified', updateSizeOutput);
+
+      document.getElementById('sizeSelect').addEventListener('change', e => {
+        drawTshirtOutline(e.target.value);
+      });
+
+      document.getElementById('unitSelect').addEventListener('change', e => {
+        currentUnit = e.target.value;
+        updateSizeOutput();
+      });
+
+      document.getElementById('upload').addEventListener('change', e => {
+        const reader = new FileReader();
+        reader.onload = function (f) {
+          fabric.Image.fromURL(f.target.result, img => {
+            if (design) canvas.remove(design);
+            design = img.set({
+              left: 150,
+              top: 150,
+              scaleX: 0.3,
